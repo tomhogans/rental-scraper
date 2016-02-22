@@ -1,12 +1,50 @@
 import re
 import time
 import os.path
+from collections import namedtuple
 
 import requests
 import lxml.html
 
 
 DATA_PATH = 'var/'
+
+Post = namedtuple('Post',
+                  ['url', 'price', 'title', 'location', 'photos',
+                   'bedrooms', 'bathrooms', 'sqft', 'available_date',
+                   'extra_info', 'body', 'map_link', 'posted_at'])
+
+
+def parse_post(html_string):
+    """ Parses HTML content of a posting and returns a Post namedtuple
+    """
+    root = lxml.html.fromstring(html_string)
+    post_url = root.xpath("//link[@rel='canonical']/@href")
+    price = root.xpath("//span[@class='price']/text()")
+    title = root.xpath("//span[@id='titletextonly']/text()")
+    location = root.xpath("//small/text()")
+    bedrooms = root.xpath("(//p[@class='attrgroup'])[1]/span[starts-with(text(),'BR')]/b/text()")
+    bathrooms = root.xpath("(//p[@class='attrgroup'])[1]/span[text()='Ba']/b/text()")
+    sqft = root.xpath("(//p[@class='attrgroup'])[1]/span[text()='ft']/b/text()")
+    available_date = root.xpath("//span[@class='housing_movein_now property_date']/@date")
+    photos = root.xpath("//div[@id='thumbs']//a/@href")
+    extra_info = root.xpath("(//p[@class='attrgroup'])[2]//span/text()")
+    body = root.xpath("//section[@id='postingbody']/text()")
+    timestamps = root.xpath("//time/@datetime")
+    map_link = root.xpath("//a[text()='google map']/@href")
+    return Post(post_url[0],
+                price[0],
+                title[0],
+                location[0][2:-1] if location else None,
+                photos,
+                bedrooms[0] if bedrooms else None,
+                bathrooms[0] if bathrooms else None,
+                sqft[0] if sqft else None,
+                available_date[0] if available_date else None,
+                extra_info,
+                body[0].strip(),
+                map_link[0] if map_link else None,
+                timestamps[-1] if timestamps else None)
 
 
 def parse_listings(html_string):
